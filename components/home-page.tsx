@@ -11,7 +11,7 @@ import { Toggle } from "@/components/ui/toggle"
 import { Loader2 } from "lucide-react"
 
 interface HomePageProps {
-  onGenerateItinerary: (location: string, interests: string[], duration: string) => void
+  onGenerateItinerary: (location: string, interests: string[], duration: string) => Promise<boolean>
   onViewSavedTrips: () => void
 }
 
@@ -33,24 +33,23 @@ export default function HomePage({ onGenerateItinerary, onViewSavedTrips }: Home
   }
 
   // Handle form submission
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     if (!location || selectedInterests.length === 0 || !duration) {
-      // Simple validation - could be enhanced with proper form validation
       alert("Please fill in all fields")
       return
     }
 
     setIsLoading(true)
 
-    // Call the parent component's function to generate itinerary
-    onGenerateItinerary(location, selectedInterests, duration)
-
-    // Reset loading state after a delay (simulating API call)
-    setTimeout(() => {
+    try {
+      await onGenerateItinerary(location, selectedInterests, duration)
+    } catch (error) {
+      console.error("Error during itinerary generation process:", error)
+    } finally {
       setIsLoading(false)
-    }, 1500)
+    }
   }
 
   return (

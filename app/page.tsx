@@ -1,10 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useTheme } from "next-themes"
 import HomePage from "@/components/home-page"
 import ItineraryPage from "@/components/itinerary-page"
 import SavedTripsPage from "@/components/saved-trips-page"
 import type { Itinerary } from "@/lib/types"
+import { Button } from "@/components/ui/button"
+import { Moon, Sun } from "lucide-react"
 
 export default function App() {
   // Simple state-based navigation
@@ -13,53 +16,80 @@ export default function App() {
   // State to hold the current itinerary
   const [currentItinerary, setCurrentItinerary] = useState<Itinerary | null>(null)
 
+  const { theme, setTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
+
+  // useEffect only runs on the client, so now we can safely show the UI
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
   // Function to navigate to a specific page
   const navigateTo = (page: "home" | "itinerary" | "saved") => {
     setCurrentPage(page)
   }
 
   // Function to handle generating an itinerary
-  const handleGenerateItinerary = (location: string, interests: string[], duration: string) => {
-    // Simulate API call with setTimeout
-    setTimeout(() => {
-      // Mock itinerary data
-      const mockItinerary: Itinerary = {
-        id: Date.now().toString(),
-        location,
-        interests,
-        duration,
-        dateCreated: new Date().toISOString(),
-        items: [
-          {
-            name: "Café de Flore",
-            description:
-              "Start your day with a classic Parisian breakfast at this historic café, once frequented by famous writers and philosophers. Enjoy a croissant and coffee while people-watching.",
-            estimatedTime: "1 hour",
-          },
-          {
-            name: "Luxembourg Gardens",
-            description:
-              "Take a leisurely stroll through these beautiful gardens. Admire the fountains, statues, and meticulously maintained flowerbeds. Perfect for relaxation and photography.",
-            estimatedTime: "1.5 hours",
-          },
-          {
-            name: "Le Comptoir du Relais",
-            description:
-              "Enjoy a delicious lunch at this popular bistro known for its seasonal French cuisine. The outdoor seating area is perfect for soaking in the local atmosphere.",
-            estimatedTime: "1.5 hours",
-          },
-        ],
+  const handleGenerateItinerary = async (location: string, interests: string[], duration: string): Promise<boolean> => {
+    try {
+      const response = await fetch('/api/generate-itinerary', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ location, interests, duration }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Error generating itinerary:', errorData.error);
+        alert(`Error: ${errorData.error || 'Failed to generate itinerary.'}`);
+        return false; // Indicate failure
       }
 
-      // Set the current itinerary and navigate to the itinerary page
-      setCurrentItinerary(mockItinerary)
-      navigateTo("itinerary")
-    }, 1500) // Simulate 1.5 second API call
+      const itineraryData: Itinerary = await response.json();
+      setCurrentItinerary(itineraryData);
+      navigateTo("itinerary");
+      return true; // Indicate success
+
+    } catch (error) {
+      console.error('Network error or other issue generating itinerary:', error);
+      alert('An unexpected error occurred. Please try again.');
+      return false; // Indicate failure
+    }
   }
 
-  // Render the appropriate page based on currentPage state
+  if (!mounted) {
+    // Render a placeholder or null during server rendering and initial client mount to avoid hydration mismatch
+    // You could also render a basic button structure without theme-dependent icons here if preferred.
+    return (
+      <main className="min-h-screen bg-background p-4">
+        <div className="flex justify-end">
+          <Button variant="outline" size="icon" disabled>
+            <Sun className="h-[1.2rem] w-[1.2rem]" />
+          </Button>
+        </div>
+      </main>
+    );
+  }
+
   return (
-    <main className="min-h-screen bg-background">
+    <main className="min-h-screen bg-background p-4">
+      <div className="flex justify-end mb-4">
+        <Button 
+          variant="outline" 
+          size="icon"
+          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+          aria-label="Toggle theme"
+        >
+          {theme === 'dark' ? (
+            <Sun className="h-[1.2rem] w-[1.2rem] transition-all" />
+          ) : (
+            <Moon className="h-[1.2rem] w-[1.2rem] transition-all" />
+          )}
+        </Button>
+      </div>
+
       {currentPage === "home" && (
         <HomePage onGenerateItinerary={handleGenerateItinerary} onViewSavedTrips={() => navigateTo("saved")} />
       )}
